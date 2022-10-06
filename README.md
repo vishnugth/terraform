@@ -175,3 +175,127 @@ output "instance_ip" {
 - `terraform.tfvars`
 - `*.auto.tfvars` (alphabetical order)
 - `-var` or `-var-file` (command line flags) (TAKES HIGHEST PRECEDENCE)
+
+#### Terraform provisioners
+---
+
+Terraform way of bootstrapping custom scripts, commands or actions.
+
+Can be run either locally(on the same system where the terraform commands are being executed) or remotely on resources spun up through the terraform deployment.
+
+Within terraform code, each individual resource can have its own provisioner defining the connection method and the actions/commands or script to execute.
+
+There are 2 types of provisioners: `Creation-time` and `Destroy-time` provisioners which you can set to run when a resource is being created or destroyed.
+
+`Note:` Terraform cannot track changes to provisioners as they can take any independent action, hence they are not tracked by terraform state file.
+
+*Example:*
+
+```
+resource "null_resource" "dummy_resource" {
+    provisioner "local-exec" {
+        command = "echo '0' > status.txt"
+    }
+
+    provisioner "local-exec" {
+        when = destroy
+        command = "echo ${self.id} > status.txt"
+    }
+}
+```
+
+If a creation time provisioner fails, terraform will mark that resource as tainted and on the next apply it will try to delete and re-create that resource.
+
+If a destroy time provisioner fails, terraform will try to re-run the provisioner on the next destroy attempt.
+
+#### Interpolation sequence
+---
+
+```
+resource "null_resource" "dummy_resource" {
+  provisioner "local-exec" {
+    command = "echo ${self.id} > status.txt"
+  }
+}
+
+resource "local_file" "foo" {
+  filename = "foo.txt"
+  # ${null_resource.dummy_resource.id} is called as interpolation sequence
+  content = "id is ${null_resource.dummy_resource.id}"
+}
+```
+
+#### Implicit and Explicit Dependency
+---
+
+In the below example, terraform builds a dependency tree automatically. `local_file` resource depends on `null_resource`. This is an example of implicit dependency.
+
+```
+resource "null_resource" "dummy_resource" {
+  provisioner "local-exec" {
+    command = "echo ${self.id} > status.txt"
+  }
+}
+
+resource "local_file" "foo" {
+  filename = "foo.txt"
+  # ${null_resource.dummy_resource.id} is called as interpolation sequence
+  content = "id is ${null_resource.dummy_resource.id}"
+}
+```
+
+In the below example we use the `depends_on` key word explicitly.
+
+```
+resource "null_resource" "dummy_resource" {
+  provisioner "local-exec" {
+    command = "echo ${self.id} > status.txt"
+  }
+}
+
+resource "local_file" "foo" {
+  filename = "foo.txt"
+  # ${null_resource.dummy_resource.id} is called as interpolation sequence
+  content = "id is ${null_resource.dummy_resource.id}"
+  depends_on = [
+    null_resource.dummy_resource
+  ]
+}
+```
+
+#### Terraform State
+---
+
+It maps the real-world resources to Terraform configuration.
+
+By default the state is stored in a local file called `terraform.tfstate`. Prior to any modification operation, terraform refreshes the state file.
+
+Resource dependency metadata is also tracked via the state file.
+
+**terraform state** command:
+
+- Utility for manipulating and reading the terraform state file.
+  - `terraform state list` (list out all the resources tracked by the terraform state file)
+  - `terraform state rm` (delete resource from the terraform state file)
+  - `terraform state show` (show the details of a resource tracked in the terraform state file)
+
+#### Terraform remote and local state storage
+---
+
+Terraform saves the statefiles locally on the system where you execute your commands. This is a default behavior.
+
+It also have an option to store these state files in remote data stores like AWS S3, google storage. This allows storing state file between distributed teams.
+
+**state locking** allows locking state so parallel executions don't coincide.
+
+On a local storage state locking is enabled by default.
+
+Enabled sharing "output" values with other Terraform configuration or code.
+
+```
+Project-A ---> TerraformStateFile(Remote Store) --> Project-B (Access the output from Project-A) 
+```
+
+#### Persisting terraform state in AWS S3
+---
+
