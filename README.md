@@ -88,10 +88,9 @@ To avoid entering variables in interactive mode we can follow few approaches.
 var.my-var
 ```
 
-It is a best practice to define these variables under separate files.
+It is a best practice to define these variables definitions under separate files `variables.tf`.
 
 - `variables.tf`
-- ``
 
 **Variable validation:**
 
@@ -268,7 +267,7 @@ resource "local_file" "foo" {
 
 It maps the real-world resources to Terraform configuration.
 
-By default the state is stored in a local file called `terraform.tfstate`. Prior to any modification operation, terraform refreshes the state file.
+By default the state is stored in a local file called `terraform.tfstate`. Prior to any modification operation, terraform refreshes the state file. When terraform creates a resource it records its identity in the state. Each resource that is created and managed by terraform will have a unique ID, which is used to identiy the resources in the real world.
 
 Resource dependency metadata is also tracked via the state file.
 
@@ -299,3 +298,48 @@ Project-A ---> TerraformStateFile(Remote Store) --> Project-B (Access the output
 #### Persisting terraform state in AWS S3
 ---
 
+It is recommended best practice to store the backend configuration under `backend.tf`
+
+```
+terraform {
+    backend "s3" {
+        profile = "demo" // aws-cli profile
+        region  = "us-east-1" 
+        key     = "terraformstatefile"
+        bucket  = "somebucketname"
+    }
+}
+```
+
+#### Terraform Modules
+---
+
+A module is a container for multiple resources that are used together.
+
+Every terraform configuration has at least one module, called `root` module, which consists of code files in your main working directory.
+
+Once you reference other modules inside your code, these newley refrenced modules are known as child modules, one can pass inputs to and get outputs back from these child modules.
+
+Modules can be downloaded from:
+
+- Terraform public registry
+- A private registry
+- Your local system
+  
+Modules are referenced using a `module` block.
+
+```
+module "module-name" {
+    source  = "./modules/vpc"
+    version = "0.0.5"
+    region  = var.region
+}
+```
+
+**Accessing module outputs in your code**
+
+```
+resource "aws_instance" "some_name" {
+    subnet_id = module.module_name.subnet_id 
+}
+```
