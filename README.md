@@ -482,3 +482,41 @@ resource "aws_s3_bucket" "example" {
     acl    = "private"
 }
 ```
+
+#### Debugging Terraform
+---
+
+**TF_LOG and TF_LOG_PATH**
+- **TF_LOG** is an environment variable for enabling verbose logging in terraform. By default it will send logs to `stderr`
+- Can be sent to the following levels: **TRACE**, **DEBUG**, **INFO**, **WARN**, **ERROR**
+- **TRACE** is the most reliable one.
+- To persist logged output, use the **TF_LOG_PATH** environment variable.
+
+```
+export TF_LOG=TRACE
+export TF_LOG_PATH=/some/path/log.txt
+```
+
+#### Terraform cloud and Enterprise offerings
+---
+
+- Best practices to secure terraform code and deployments
+  - Hashicorp sentinel
+  - Terraform vault provider
+
+**Sentinel**
+- Enforces policies on your terraform code. (code that enforces restrictions on your terraform code)
+- Sentinel has it's own policy language which you write policies in, this allows you to identify and avoid using dangerous and malicious terraform code written.
+- Designed to be approachable by non programmers.
+- It runs in terraform enterprise after terraform plan and before terraform apply.
+
+**Usecases**
+- For enforcing CIS standards across AWS accounts.
+- Checking to make sure only certain type of EC2 instances are allowed to launch.
+- Ensuring no security group allows traffic on port 22.
+- Ensure all EC2 instances has atleast on tag.
+
+#### Terrafor Vault Provider for injecting secrets securely
+---
+Hashicorp Vault is a secret management software, it is used to store sensitive data securely and provides short lived temp credentials to the users.
+Dynamically provisions credentials and rotates them. Encrypts sensitive data in transit and at rest and provides fine-grained access to secrets using ACL's.
