@@ -338,8 +338,147 @@ module "module-name" {
 
 **Accessing module outputs in your code**
 
+Inside Child Module:
+
+```
+output "subnet_id" {
+    value = aws_instance.private_ip
+}
+```
+
+Inside Root Module:
+
 ```
 resource "aws_instance" "some_name" {
     subnet_id = module.module_name.subnet_id 
+}
+```
+
+#### Terraform built-in functions
+---
+
+Terraform comes pre-packaged with functions to help you transform and combine values.
+
+User-defined functions are not allowed - only built-in ones.
+
+Syntax: `function_name(arg1, arg2, ...)`
+
+These functions allows you to write flexible and dynamic terraform code.
+
+https://www.terraform.io/docs/configuration/functions.html
+
+`terraform console` command provides an interactive CLI that allows us to experiment with built in functions.
+
+#### Variables type constraints
+---
+
+https://developer.hashicorp.com/terraform/language/expressions/type-constraints
+
+#### Dynamic Blocks
+---
+
+Dynamically constructs repeatable nested configuration blocks inside terraform resources.
+
+Supports within the following block types:
+- resource
+- data
+- provider
+- provisioner
+
+https://developer.hashicorp.com/terraform/language/expressions/dynamic-blocks
+
+**Example:** without dynamic block.
+
+```
+resource "aws_security_group" "sg" {
+    name    = "sg_name"
+    vpc_id  = aws_vpc.my_vpc.id
+    ingress {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blockc = ["1.2.3.4", "5.6.7.8"]
+    }
+    ingress {
+        ...
+    }
+    ingress {
+        ...
+    }
+}
+```
+
+**Example:** with dynamic block.
+```
+resource "aws_security_group" "sg" {
+    name    = "sg_name"
+    vpc_id  = aws_vpc.my_vpc.id
+    dynamic "ingress" {
+        for_each = var.rules
+        content {
+            from_port   = ingress.value["from_port"] 
+            to_port     = ingress.value["to_port"]
+            protocol    = ingress.value["proto"]
+            cidr_blocks = ingress.value["cidrs"]
+        }
+    }
+}
+```
+
+**Note:** Only use dynamic block when you need to hide detail in order to build a cleaner user interface when writing reusable modules.
+
+#### Terraform fmt, taint and import commands
+---
+
+- `terraform fmt` formats the code blocks.
+
+- `terraform taint` the taint command basically marks an existing terraform resource forcing it to be deleted and re-created. It modifies the state file only which causes the recreating workflow. During the next terraform apply it deletes the resources and re-creates it.
+- Tainting a resource may affect the other resources that are dependent on it to be modified.
+- `terraform taint <resource_address>`
+- Taint's scenario:
+  - To cause provisioners to run. Since provisioners are not tracked by terraform, they are ran during resource creation and deletion.
+  - Replace the misbehaving resources forcefully.
+  - To mimic the side effects of recreation not modeled by any attributes of the resource.
+ 
+- `terraform import`
+  - Maps an existing resource that is not managed by terraform using an **ID**.
+  - **ID** is dependent on underlying vendor, for example to import an AWS EC2 instance you will need to provide it's instance ID.
+  - `terraform import <Resource_Address> <ID>`
+  - Scenarios:
+    - When you need to work with the existing resources.
+    - Not allowed to create new resources.
+    - When you are not in control of creation process of infrastrcture.
+
+#### Terraform workspaces
+---
+
+The terraform workspaces are alternate state files withing the same working directory.
+Terraform starts with a default workspace that is always called `default`. It cannot be deleted. Each workspace tracks independent copy of statefile against the terraform code in that directory.
+
+**Commands:**
+
+- `terraform workspace new <workspacename>`
+- `terraform workspace select <workspacename>`
+
+**Scenarios:**
+
+- Test changes using a parallel, distinct copy of infrastructure.
+- It can be modeled against branches in version control such as Git.
+
+Workspaces are meant to share resources and to help enable collaboration. Access to a workspace name is provided through the `${terraform.workspace}` variable.
+
+**Examples:**
+
+```
+resource "aws_instance" "example" {
+    count = terraform.workspace == "default" ? 5 : 1
+    ...
+}
+```
+
+```
+resource "aws_s3_bucket" "example" {
+    bucket = "somebucket-${terraform.workspace}"
+    acl    = "private"
 }
 ```
